@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dota 2 Player Search</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            background-color: #1e1e1e; 
+            color: white;
+        }
+        #player-info { margin-top: 20px; }
+        img { border-radius: 50%; }
+    </style>
+</head>
+<body>
+    <h2>Dota 2 Player Match Tracker</h2>
+    <input type="text" id="steamId" placeholder="Enter Steam ID">
+    <button onclick="searchPlayer()">Search</button>
+    <div id="player-info"></div>
+    
+    <script>
+        async function searchPlayer() {
+            const steamId = document.getElementById('steamId').value;
+            if (!steamId) return alert("Please enter a Steam ID");
+            
+            const response = await fetch(`https://api.opendota.com/api/players/${steamId}`);
+            const playerData = await response.json();
+            
+            const rankNames = {
+                10: "Herald", 20: "Guardian", 30: "Crusader", 40: "Archon", 50: "Legend", 60: "Ancient", 70: "Divine", 80: "Immortal"
+            };
+            
+            const rank = playerData.rank_tier ? rankNames[Math.floor(playerData.rank_tier / 10) * 10] || "Unranked" : "Unranked";
+            
+            document.getElementById('player-info').innerHTML = `
+                <h3>${playerData.profile.personaname}</h3>
+                <img src="${playerData.profile.avatarfull}" alt="Avatar">
+                <p>Rank: ${rank}</p>
+            `;
+            
+            const matchResponse = await fetch(`https://api.opendota.com/api/players/${steamId}/recentMatches`);
+            const matches = await matchResponse.json();
+            
+            const teammateIds = new Set();
+            for (const match of matches) {
+                const matchDetail = await fetch(`https://api.opendota.com/api/matches/${match.match_id}`);
+                const matchData = await matchDetail.json();
+                matchData.players.forEach(player => {
+                    if (player.account_id && player.account_id !== Number(steamId)) {
+                        teammateIds.add(player.account_id);
+                    }
+                });
+            }
+            
+            let friendsHtml = '<h4>Recent Teammates</h4><ul>';
+            for (const id of teammateIds) {
+                const friendData = await fetch(`https://api.opendota.com/api/players/${id}`);
+                const friend = await friendData.json();
+                friendsHtml += `<li><img src="${friend.profile.avatar}" alt="Avatar"> ${friend.profile.personaname}</li>`;
+            }
+            friendsHtml += '</ul>';
+            
+            document.getElementById('player-info').innerHTML += friendsHtml;
+        }
+    </script>
+</body>
+</html>
